@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HUD-11 Employee Interview</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+
+/* Full-viewport fixed layout — the only reliable approach for local HTML on mobile Safari/Chrome */
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5}
+
+:root{
+  --blue:#1a4d8f;--blue-light:#e8f0fb;--blue-mid:#2d6cc4;
+  --teal:#0d6b52;--teal-light:#e0f4ee;
+  --border:#c8cfd8;--label:#5a6472;--text:#1a2130;
+  --surface:#ffffff;--bg:#f0f2f5;--danger:#8b1a1a;
+}
+
+/* Fixed header */
+.app-header{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  background:var(--blue);color:#fff;padding:14px 16px 10px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.2)
+}
+.app-header h1{font-size:14px;font-weight:600;letter-spacing:0.02em}
+.app-header p{font-size:11px;opacity:0.75;margin-top:2px}
+.progress-wrap{height:3px;background:rgba(255,255,255,0.2);margin-top:10px}
+.progress-fill{height:3px;background:#fff;transition:width 0.3s ease}
+.step-label{font-size:11px;color:rgba(255,255,255,0.7);margin-top:6px}
+
+/* Fixed nav bar at bottom */
+.nav-bar{
+  position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:var(--surface);border-top:1px solid var(--border);
+  padding:10px 16px;padding-bottom:calc(10px + env(safe-area-inset-bottom));
+  display:flex;gap:10px
+}
+
+/* Scrollable content sits between fixed header and fixed nav */
+.content-area{
+  position:fixed;left:0;right:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  background:#f0f2f5
+}
+
+/* Sections — JS sets display directly via style attribute, no class toggling */
+.section{padding:16px;max-width:520px;margin:0 auto;display:none}
+.section-title{font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:16px;padding-bottom:8px;border-bottom:1.5px solid var(--blue);display:flex;align-items:center;gap:8px}
+.section-title span{background:var(--blue);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--label);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.04em}
+.field .item-ref{font-size:10px;color:#8a94a0;font-weight:400;margin-left:4px}
+.field input,.field textarea,.field select{
+  width:100%;font-family:inherit;font-size:16px;color:var(--text);
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:10px 12px;outline:none;
+  -webkit-appearance:none;appearance:none
+}
+.field textarea{resize:vertical;min-height:80px;line-height:1.5}
+.field input:focus,.field textarea:focus{border-color:var(--blue-mid)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.toggle-group{display:flex;gap:8px;margin-top:4px}
+.toggle-btn{
+  flex:1;padding:12px 6px;font-size:14px;font-weight:600;
+  border-radius:8px;border:1px solid var(--border);
+  background:var(--surface);color:var(--label);cursor:pointer;
+  text-align:center;user-select:none;-webkit-user-select:none
+}
+.toggle-btn.yes.on{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}
+.toggle-btn.no.on{background:#fbeaea;border-color:var(--danger);color:var(--danger)}
+
+.freq-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.freq-btn{
+  padding:9px 14px;font-size:13px;font-weight:500;border-radius:8px;
+  border:1px solid var(--border);background:var(--surface);color:var(--label);
+  cursor:pointer;user-select:none;-webkit-user-select:none
+}
+.freq-btn.on{background:var(--blue-light);border-color:var(--blue);color:var(--blue)}
+
+/* Signature */
+.sig-wrapper{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fafbfc;position:relative}
+.sig-canvas{display:block;width:100%;height:130px;touch-action:none;cursor:crosshair}
+.sig-toolbar{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#f5f6f8;border-top:1px solid var(--border)}
+.sig-label-text{font-size:11px;color:var(--label);font-weight:500}
+.sig-clear{font-size:13px;color:var(--danger);font-weight:600;cursor:pointer;border:none;background:none;padding:6px 10px;border-radius:6px}
+.sig-placeholder{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:13px;color:#b0b8c4;pointer-events:none;white-space:nowrap}
+
+/* Buttons */
+.btn{
+  flex:1;padding:14px 10px;border-radius:10px;font-size:15px;
+  font-weight:600;cursor:pointer;border:1px solid var(--border);
+  font-family:inherit;background:var(--bg);color:var(--label);
+  -webkit-appearance:none;appearance:none
+}
+.btn-next{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-export{background:var(--teal);color:#fff;border-color:var(--teal);width:100%;padding:14px;border-radius:10px;font-size:15px;font-weight:600;font-family:inherit;-webkit-appearance:none;appearance:none;cursor:pointer}
+
+/* Review */
+.review-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px}
+.review-block h4{font-size:10px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e8eaed}
+.review-row{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:0.5px solid #eef0f2;font-size:13px}
+.review-row:last-child{border-bottom:none}
+.rk{color:var(--label);flex-shrink:0;width:45%}
+.rv{color:var(--text);font-weight:500;text-align:right;word-break:break-word}
+.rv.full{text-align:left;display:block;width:100%;margin-top:3px}
+.review-row.full-row{flex-direction:column}
+.sig-preview{max-width:180px;border:1px solid var(--border);border-radius:4px;margin-top:4px}
+.badge-yes{color:var(--teal);font-weight:600}
+.badge-no{color:var(--danger);font-weight:600}
+.badge-na{color:#8a94a0}
+.export-note{font-size:12px;color:var(--label);line-height:1.5;margin-top:10px;text-align:center}
+
+/* Toast */
+.toast{display:none;position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a2130;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;z-index:9999;white-space:nowrap}
+.toast.show{display:block}
+</style>
+</head>
+<body>
+
+<div class="app-header" id="app-header">
+  <h1>HUD-11 — Record of Employee Interview</h1>
+  <p>Davis-Bacon &amp; Labor Standards · OMB 2501-0009</p>
+  <div class="progress-wrap"><div class="progress-fill" id="prog"></div></div>
+  <div class="step-label" id="step-lbl"></div>
+</div>
+
+<div class="content-area" id="content-area">
+
+<!-- Section 1: Project Info -->
+<div id="s1" class="section">
+  <div class="section-title"><span>1</span>Project &amp; Contractor</div>
+  <div class="field"><label>Project Name <span class="item-ref">Item 1a</span></label><input type="text" id="f-proj-name" placeholder="Full project name"></div>
+  <div class="field"><label>Project Number <span class="item-ref">Item 1b</span></label><input type="text" id="f-proj-num" placeholder="e.g. TN018-2024-001"></div>
+  <div class="field"><label>Contractor / Subcontractor <span class="item-ref">Item 1c</span></label><input type="text" id="f-contractor" placeholder="Employer company name (not individual)"></div>
+</div>
+
+<!-- Section 2: Employee Info -->
+<div id="s2" class="section">
+  <div class="section-title"><span>2</span>Employee Information</div>
+  <div class="field"><label>Employee Full Name <span class="item-ref">Item 2a</span></label><input type="text" id="f-emp-name" placeholder="First and last name"></div>
+  <div class="row2">
+    <div class="field"><label>Phone <span class="item-ref">2b</span></label><input type="tel" id="f-emp-phone" placeholder="(xxx) xxx-xxxx"></div>
+    <div class="field"><label>Email <span class="item-ref">2b</span></label><input type="email" id="f-emp-email" placeholder="Optional"></div>
+  </div>
+  <div class="field"><label>Home Address &amp; ZIP <span class="item-ref">Item 2c</span></label><textarea id="f-emp-addr" placeholder="Use permanent address if different from local/temporary address"></textarea></div>
+  <div class="field"><label>Identification Verified? <span class="item-ref">Item 2d</span></label>
+    <div class="toggle-group">
+      <div class="toggle-btn yes" data-field="id-verify" data-val="Yes" onclick="tog(this)">Yes</div>
+      <div class="toggle-btn no" data-field="id-verify" data-val="No" onclick="tog(this)">No</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 3: Time & Pay -->
+<div id="s3" class="section">
+  <div class="section-title"><span>3</span>Time &amp; Pay</div>
+  <div class="row2">
+    <div class="field"><label>Time on This Job <span class="item-ref">3a</span></label><input type="text" id="f-time-job" placeholder="e.g. 3 weeks"></div>
+    <div class="field"><label>Avg. Weekly Hours <span class="item-ref">3a</span></label><input type="number" id="f-avg-hrs" placeholder="e.g. 40" min="0" max="84"></div>
+  </div>
+  <div class="row2">
+    <div class="field"><label>Last Date on Job <span class="item-ref">3b</span></label><input type="date" id="f-last-date"></div>
+    <div class="field"><label>Hours That Day <span class="item-ref">3c</span></label><input type="number" id="f-last-hrs" placeholder="e.g. 8" min="0" max="24"></div>
+  </div>
+  <div class="field"><label>Hourly Rate of Pay <span class="item-ref">Item 4a</span></label><input type="text" id="f-pay-rate" placeholder="e.g. $28.50/hr"></div>
+  <div class="field"><label>Medical Benefits? <span class="item-ref">Item 4b</span></label>
+    <div class="toggle-group">
+      <div class="toggle-btn yes" data-field="medical" data-val="Yes" onclick="tog(this)">Yes</div>
+      <div class="toggle-btn no" data-field="medical" data-val="No" onclick="tog(this)">No</div>
+    </div>
+  </div>
+  <div class="field"><label>Pension Benefits? <span class="item-ref">Item 4b</span></label>
+    <div class="toggle-group">
+      <div class="toggle-btn yes" data-field="pension" data-val="Yes" onclick="tog(this)">Yes</div>
+      <div class="toggle-btn no" data-field="pension" data-val="No" onclick="tog(this)">No</div>
+    </div>
+  </div>
+  <div class="field"><label>Frequency of Pay <span class="item-ref">Item 4c</span></label>
+    <div class="freq-group">
+      <div class="freq-btn" data-field="freq" data-val="Weekly" onclick="togFreq(this)">Weekly</div>
+      <div class="freq-btn" data-field="freq" data-val="Biweekly" onclick="togFreq(this)">Biweekly</div>
+      <div class="freq-btn" data-field="freq" data-val="Semi-monthly" onclick="togFreq(this)">Semi-monthly</div>
+      <div class="freq-btn" data-field="freq" data-val="Other" onclick="togFreq(this)">Other</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 4: Classification -->
+<div id="s4" class="section">
+  <div class="section-title"><span>4</span>Classification &amp; Work</div>
+  <div class="field"><label>Job Classification(s) <span class="item-ref">Item 5</span></label><textarea id="f-class" placeholder="Be specific: Carpenter, Electrician, Plumber — not 'journeyman' or 'mechanic'. List all that apply."></textarea></div>
+  <div class="field"><label>Employee's Stated Duties <span class="item-ref">Item 6</span></label><textarea id="f-duties" placeholder="What does the employee describe as their duties on this job?"></textarea></div>
+  <div class="field"><label>Tools / Equipment Used <span class="item-ref">Item 7</span></label><textarea id="f-tools" placeholder="List all tools and equipment used by the employee"></textarea></div>
+</div>
+
+<!-- Section 5: Compliance Questions -->
+<div id="s5" class="section">
+  <div class="section-title"><span>5</span>Compliance Questions</div>
+  <div class="field"><label>Apprentice or Trainee? <span class="item-ref">Item 8</span></label>
+    <div class="toggle-group">
+      <div class="toggle-btn yes" data-field="apprentice" data-val="Yes" onclick="tog(this)">Yes</div>
+      <div class="toggle-btn no" data-field="apprentice" data-val="No" onclick="tog(this)">No</div>
+    </div>
+  </div>
+  <div class="field"><label>Apprenticeship Certificate Provided? <span class="item-ref">Item 8a</span></label>
+    <div class="toggle-group">
+      <div class="toggle-btn yes" data-field="cert" data-val="Yes" onclick="tog(this)">Yes</div>
+      <div class="toggle-btn no" data-field="cert" data-val="No" onclick="tog(this)">No</div>
+    </div>
+  </div>
+  <div class="field"><label>Paid for All Hours Worked? <span class="item-ref">Item 9</span></label>
+    <div class="toggle-group">
+      <div class="toggle-btn yes" data-field="all-hrs" data-val="Yes" onclick="tog(this)">Yes</div>
+      <div class="toggle-btn no" data-field="all-hrs" data-val="No" onclick="tog(this)">No</div>
+    </div>
+  </div>
+  <div class="field"><label>Paid Overtime (1.5×) for Hours Over 40/Week? <span class="item-ref">Item 10</span></label>
+    <div class="toggle-group">
+      <div class="toggle-btn yes" data-field="overtime" data-val="Yes" onclick="tog(this)">Yes</div>
+      <div class="toggle-btn no" data-field="overtime" data-val="No" onclick="tog(this)">No</div>
+    </div>
+  </div>
+  <div class="field"><label>Ever Threatened / Coerced to Give Up Pay? <span class="item-ref">Item 11</span></label>
+    <div class="toggle-group">
+      <div class="toggle-btn yes" data-field="coerced" data-val="Yes" onclick="tog(this)">Yes</div>
+      <div class="toggle-btn no" data-field="coerced" data-val="No" onclick="tog(this)">No</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 6: Employee Signature -->
+<div id="s6" class="section">
+  <div class="section-title"><span>6</span>Employee Signature</div>
+  <p style="font-size:13px;color:var(--label);margin-bottom:14px;line-height:1.5">Have the employee sign below using their finger or stylus. <strong>Item 12a.</strong></p>
+  <div class="field">
+    <label>Employee Signature</label>
+    <div class="sig-wrapper">
+      <canvas class="sig-canvas" id="sig-emp" width="800" height="240"></canvas>
+      <div class="sig-placeholder" id="ph-emp">Sign here with finger or stylus</div>
+      <div class="sig-toolbar">
+        <span class="sig-label-text">12a. Employee Signature</span>
+        <button class="sig-clear" onclick="clearSig('sig-emp','ph-emp')">Clear</button>
+      </div>
+    </div>
+  </div>
+  <div class="field">
+    <label>Date Signed <span class="item-ref">Item 12b</span></label>
+    <input type="date" id="f-sig-date">
+  </div>
+</div>
+
+<!-- Section 7: Interviewer Observations -->
+<div id="s7" class="section">
+  <div class="section-title"><span>7</span>Interviewer Observations</div>
+  <div class="field"><label>Duties Observed by Interviewer <span class="item-ref">Item 13</span></label><textarea id="f-obs" style="min-height:100px" placeholder="Be specific. What did you actually see this worker doing? Include crew size, location on site, equipment in use."></textarea></div>
+  <div class="field"><label>Remarks <span class="item-ref">Item 14</span></label><textarea id="f-remarks" placeholder="Was employee evasive? Crew details? Any discrepancies observed? Notes for follow-up."></textarea></div>
+  <div class="row2">
+    <div class="field"><label>Interviewer Name <span class="item-ref">15a</span></label><input type="text" id="f-int-name" placeholder="Print full name"></div>
+    <div class="field"><label>Date of Interview <span class="item-ref">15c</span></label><input type="date" id="f-int-date"></div>
+  </div>
+</div>
+
+<!-- Section 8: Interviewer Signature -->
+<div id="s8" class="section">
+  <div class="section-title"><span>8</span>Interviewer Signature</div>
+  <p style="font-size:13px;color:var(--label);margin-bottom:14px;line-height:1.5">Interviewer signs below. <strong>Item 15b.</strong></p>
+  <div class="field">
+    <label>Interviewer Signature</label>
+    <div class="sig-wrapper">
+      <canvas class="sig-canvas" id="sig-int" width="800" height="240"></canvas>
+      <div class="sig-placeholder" id="ph-int">Sign here with finger or stylus</div>
+      <div class="sig-toolbar">
+        <span class="sig-label-text">15b. Signature of Interviewer</span>
+        <button class="sig-clear" onclick="clearSig('sig-int','ph-int')">Clear</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 9: Payroll Examiner -->
+<div id="s9" class="section">
+  <div class="section-title"><span>9</span>Payroll Examination</div>
+  <p style="font-size:13px;color:var(--label);margin-bottom:14px;line-height:1.5">Complete after comparing HUD-11 data to certified payroll reports.</p>
+  <div class="field"><label>Payroll Examiner Remarks <span class="item-ref">Item 16</span></label><textarea id="f-pay-remarks" placeholder="Note any discrepancies between interview data and certified payroll reports. Note follow-up actions taken."></textarea></div>
+  <div class="field">
+    <label>Payroll Examiner Signature <span class="item-ref">Item 17a</span></label>
+    <div class="sig-wrapper">
+      <canvas class="sig-canvas" id="sig-pay" width="800" height="240"></canvas>
+      <div class="sig-placeholder" id="ph-pay">Sign here with finger or stylus</div>
+      <div class="sig-toolbar">
+        <span class="sig-label-text">17a. Signature of Payroll Examiner</span>
+        <button class="sig-clear" onclick="clearSig('sig-pay','ph-pay')">Clear</button>
+      </div>
+    </div>
+  </div>
+  <div class="field"><label>Date <span class="item-ref">Item 17b</span></label><input type="date" id="f-pay-date"></div>
+  <div class="field"><label>Additional Remarks <span class="item-ref">Item 18</span></label><textarea id="f-addl" placeholder="Overflow or continuation from any other section. Any additional information to document."></textarea></div>
+</div>
+
+<!-- Section 10: Review & Export -->
+<div id="s10" class="section">
+  <div class="section-title"><span>✓</span>Review &amp; Export</div>
+  <div id="review-content"></div>
+  <button class="btn btn-export" onclick="exportPDF()">Export HUD-11 PDF</button>
+  <p class="export-note">Generates a 3-page PDF matching the official HUD-11 layout with your data and signatures filled in.</p>
+</div>
+
+</div><!-- end content-area -->
+
+<div class="nav-bar" id="nav-bar">
+  <button class="btn" id="btn-back" onclick="goBack()" style="display:none">← Back</button>
+  <button class="btn btn-next" id="btn-next" onclick="goNext()">Next →</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────
+var cur = 1, total = 10;
+var tv = {}; // toggle values
+var sectionNames = [
+  "Project & Contractor","Employee Information","Time & Pay",
+  "Classification & Work","Compliance Questions","Employee Signature",
+  "Interviewer Observations","Interviewer Signature",
+  "Payroll Examination","Review & Export"
+];
+
+// ── Nav ────────────────────────────────────────────────────────────────
+function showSection(n) {
+  for (var i = 1; i <= total; i++) {
+    var el = document.getElementById('s' + i);
+    if (el) el.style.display = (i === n) ? 'block' : 'none';
+  }
+  var ca = document.getElementById('content-area');
+  if (ca) ca.scrollTop = 0;
+}
+
+function updateUI() {
+  var back = document.getElementById('btn-back');
+  var next = document.getElementById('btn-next');
+  if (back) back.style.display = cur === 1 ? 'none' : 'block';
+  if (next) next.style.display = cur === total ? 'none' : 'block';
+  var pct = Math.round((cur / total) * 100);
+  var pf = document.getElementById('prog');
+  if (pf) pf.style.width = pct + '%';
+  var sl = document.getElementById('step-lbl');
+  if (sl) sl.textContent = 'Step ' + cur + ' of ' + total + ' — ' + sectionNames[cur - 1];
+}
+
+function goNext() {
+  if (cur < total) {
+    cur++;
+    showSection(cur);
+    if (cur === total) buildReview();
+    updateUI();
+  }
+}
+function goBack() {
+  if (cur > 1) {
+    cur--;
+    showSection(cur);
+    updateUI();
+  }
+}
+
+// ── Toggles ────────────────────────────────────────────────────────────
+function tog(el) {
+  var f = el.dataset.field;
+  el.parentNode.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  tv[f] = el.dataset.val;
+}
+function togFreq(el) {
+  el.parentNode.querySelectorAll('.freq-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  tv['freq'] = el.dataset.val;
+}
+
+// ── Signature Pads ─────────────────────────────────────────────────────
+var sigStates = {};
+function initSig(id) {
+  var canvas = document.getElementById(id);
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  ctx.strokeStyle = '#1a2130';
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  var drawing = false, hasContent = false;
+
+  function getPos(e) {
+    var r = canvas.getBoundingClientRect();
+    var scaleX = canvas.width / r.width;
+    var scaleY = canvas.height / r.height;
+    var src = e.touches ? e.touches[0] : e;
+    return { x: (src.clientX - r.left) * scaleX, y: (src.clientY - r.top) * scaleY };
+  }
+  function start(e) {
+    e.preventDefault();
+    drawing = true;
+    var p = getPos(e);
+    ctx.beginPath(); ctx.moveTo(p.x, p.y);
+    var ph = document.getElementById(id === 'sig-emp' ? 'ph-emp' : id === 'sig-int' ? 'ph-int' : 'ph-pay');
+    if (ph) ph.style.display = 'none';
+  }
+  function move(e) {
+    e.preventDefault();
+    if (!drawing) return;
+    hasContent = true;
+    var p = getPos(e);
+    ctx.lineTo(p.x, p.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(p.x, p.y);
+  }
+  function end(e) { e.preventDefault(); drawing = false; }
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  canvas.addEventListener('mouseup', end);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', end, { passive: false });
+  sigStates[id] = { ctx, hasContent: () => hasContent, canvas };
+}
+
+function clearSig(canvasId, phId) {
+  var s = sigStates[canvasId];
+  if (!s) return;
+  s.ctx.clearRect(0, 0, s.canvas.width, s.canvas.height);
+  var ph = document.getElementById(phId);
+  if (ph) ph.style.display = 'block';
+}
+
+function getSigData(id) {
+  var s = sigStates[id];
+  if (!s) return null;
+  // Check if blank
+  var d = s.ctx.getImageData(0, 0, s.canvas.width, s.canvas.height).data;
+  var blank = d.every(v => v === 0);
+  if (blank) return null;
+  return s.canvas.toDataURL('image/png');
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────
+function gv(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+function tval(f) { return tv[f] || '—'; }
+function badge(v) {
+  if (v === 'Yes') return '<span class="badge-yes">Yes</span>';
+  if (v === 'No') return '<span class="badge-no">No</span>';
+  return '<span class="badge-na">—</span>';
+}
+
+// ── Review ─────────────────────────────────────────────────────────────
+function buildReview() {
+  var h = '';
+  h += rb('Project & Contractor', [
+    rr('Project name', gv('f-proj-name')), rr('Project no.', gv('f-proj-num')), rr('Contractor', gv('f-contractor'))
+  ]);
+  h += rb('Employee', [
+    rr('Name', gv('f-emp-name')), rr('Phone', gv('f-emp-phone')), rr('Email', gv('f-emp-email')),
+    rrf('Address', gv('f-emp-addr')), rrb('ID verified', tval('id-verify'))
+  ]);
+  h += rb('Time & Pay', [
+    rr('Time on job', gv('f-time-job')), rr('Avg. weekly hrs', gv('f-avg-hrs')),
+    rr('Last date', gv('f-last-date')), rr('Hours that day', gv('f-last-hrs')),
+    rr('Hourly rate', gv('f-pay-rate')), rrb('Medical', tval('medical')),
+    rrb('Pension', tval('pension')), rr('Pay frequency', tval('freq'))
+  ]);
+  h += rb('Classification & Work', [
+    rrf('Classification(s)', gv('f-class')), rrf('Stated duties', gv('f-duties')), rrf('Tools/equipment', gv('f-tools'))
+  ]);
+  h += rb('Compliance', [
+    rrb('Apprentice/trainee', tval('apprentice')), rrb('Cert. provided', tval('cert')),
+    rrb('Paid all hours', tval('all-hrs')), rrb('Overtime (1.5×)', tval('overtime')),
+    rrb('Threatened/coerced', tval('coerced'))
+  ]);
+  // Employee sig preview
+  var esd = getSigData('sig-emp');
+  h += rb('Employee Signature', [
+    rr('Date', gv('f-sig-date')),
+    '<div class="review-row"><span class="rk">Signature</span><div>' + (esd ? '<img class="sig-preview" src="' + esd + '">' : '<span class="badge-na">Not signed</span>') + '</div></div>'
+  ]);
+  h += rb('Interviewer Observations', [
+    rrf('Duties observed', gv('f-obs')), rrf('Remarks', gv('f-remarks')),
+    rr('Interviewer', gv('f-int-name')), rr('Interview date', gv('f-int-date'))
+  ]);
+  h += rb('Payroll Examination', [
+    rrf('Examiner remarks', gv('f-pay-remarks')), rr('Date', gv('f-pay-date')), rrf('Additional remarks', gv('f-addl'))
+  ]);
+  document.getElementById('review-content').innerHTML = h;
+}
+
+function rb(title, rows) {
+  return '<div class="review-block"><h4>' + title + '</h4>' + rows.join('') + '</div>';
+}
+function rr(k, v) { return '<div class="review-row"><span class="rk">' + k + '</span><span class="rv">' + (v || '—') + '</span></div>'; }
+function rrf(k, v) { return '<div class="review-row full-row"><span class="rk">' + k + '</span><span class="rv full">' + (v ? v.replace(/\n/g, '<br>') : '—') + '</span></div>'; }
+function rrb(k, v) { return '<div class="review-row"><span class="rk">' + k + '</span><span class="rv">' + badge(v) + '</span></div>'; }
+
+// ── PDF EXPORT ─────────────────────────────────────────────────────────
+function exportPDF() {
+  if (typeof window.jspdf === 'undefined') { showToast('PDF library loading, try again'); return; }
+  var { jsPDF } = window.jspdf;
+  var doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  var W = 612, H = 792;
+  var M = 36; // margin
+  var inner = W - M * 2;
+
+  // ── Helper fns ──
+  function hline(y, x1, x2, w) { doc.setLineWidth(w || 0.5); doc.line(x1 || M, y, x2 || W - M, y); }
+  function vline(x, y1, y2, w) { doc.setLineWidth(w || 0.5); doc.line(x, y1, x, y2); }
+  function box(x, y, w, h, lw) { doc.setLineWidth(lw || 0.5); doc.rect(x, y, w, h); }
+  function txt(t, x, y, size, style, color) {
+    doc.setFontSize(size || 8);
+    doc.setFont('helvetica', style || 'normal');
+    doc.setTextColor(...(color || [0, 0, 0]));
+    doc.text(String(t || ''), x, y);
+  }
+  function label(t, x, y) { txt(t, x, y, 6.5, 'bold', [80, 80, 80]); }
+  function value(t, x, y, maxW) {
+    if (!t) return;
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(0, 0, 0);
+    if (maxW) {
+      var lines = doc.splitTextToSize(String(t), maxW);
+      doc.text(lines, x, y);
+    } else { doc.text(String(t), x, y); }
+  }
+  function yn(field, x, y, boxW) {
+    boxW = boxW || 60;
+    var val = tv[field] || '';
+    // Y box
+    box(x, y - 8, 10, 10);
+    if (val === 'Yes') { doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.text('X', x + 1.5, y); }
+    txt('Yes', x + 13, y, 8);
+    // N box
+    box(x + 28, y - 8, 10, 10);
+    if (val === 'No') { doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.text('X', x + 29.5, y); }
+    txt('No', x + 41, y, 8);
+  }
+
+  // ────────────────────────────────────────
+  // PAGE 1
+  // ────────────────────────────────────────
+  // Header banner
+  doc.setFillColor(240, 240, 240);
+  doc.rect(M, M, inner, 28, 'F');
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
+  doc.text('Record of Employee Interview', W / 2, M + 12, { align: 'center' });
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 50, 50);
+  doc.text('U.S. Department of Housing and Urban Development', W / 2, M + 21, { align: 'center' });
+  doc.text('Office of Davis-Bacon and Labor Standards', W / 2, M + 28.5, { align: 'center' });
+
+  // OMB info right side
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 60);
+  doc.text('OMB Approval No. 2501-0009', W - M - 2, M + 8, { align: 'right' });
+  doc.text('(exp. 03/31/2028)', W - M - 2, M + 15, { align: 'right' });
+  doc.text('Form HUD-11 (03/2025)', W - M - 2, M + 22, { align: 'right' });
+
+  var y0 = M + 36; // start of form fields
+
+  // Row 1: 1a | 2a
+  var rowH = 40;
+  box(M, y0, inner / 2, rowH);
+  box(M + inner / 2, y0, inner / 2, rowH);
+  label('1a. Project Name', M + 3, y0 + 8);
+  value(gv('f-proj-name'), M + 3, y0 + 20, inner / 2 - 6);
+  label('2a. Employee\'s Full Name', M + inner / 2 + 3, y0 + 8);
+  value(gv('f-emp-name'), M + inner / 2 + 3, y0 + 20, inner / 2 - 6);
+
+  y0 += rowH;
+  // Row 2: 1b | 2b phone & email
+  var bH = 36;
+  box(M, y0, inner / 2, bH);
+  box(M + inner / 2, y0, inner / 2, bH);
+  label('1b. Project Number', M + 3, y0 + 8);
+  value(gv('f-proj-num'), M + 3, y0 + 20);
+  label('2b. Employee\'s Phone Number and Email Address', M + inner / 2 + 3, y0 + 8);
+  value(gv('f-emp-phone') + (gv('f-emp-email') ? '  |  ' + gv('f-emp-email') : ''), M + inner / 2 + 3, y0 + 20, inner / 2 - 6);
+
+  y0 += bH;
+  // Row 3: 1c | 2c address
+  var cH = 40;
+  box(M, y0, inner / 2, cH);
+  box(M + inner / 2, y0, inner / 2, cH);
+  label('1c. Contractor or Subcontractor (Employer)', M + 3, y0 + 8);
+  value(gv('f-contractor'), M + 3, y0 + 20, inner / 2 - 6);
+  label('2c. Employee\'s Home Address & Zip Code', M + inner / 2 + 3, y0 + 8);
+  var addrLines = doc.splitTextToSize(gv('f-emp-addr') || '', inner / 2 - 6);
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(0, 0, 0);
+  doc.text(addrLines, M + inner / 2 + 3, y0 + 18);
+
+  y0 += cH;
+  // Row 4: 2d ID verified (small strip)
+  var dH = 24;
+  box(M, y0, inner / 2, dH); // blank left
+  box(M + inner / 2, y0, inner / 2, dH);
+  label('2d. Verification of identification?', M + inner / 2 + 3, y0 + 9);
+  yn('id-verify', M + inner / 2 + 120, y0 + 16);
+
+  y0 += dH;
+  // Row 5: 3a time/hrs | 3b last date | 3c last hrs
+  var eH = 36;
+  var col3 = inner / 3;
+  box(M, y0, col3 + 10, eH);
+  box(M + col3 + 10, y0, col3 - 5, eH);
+  box(M + col3 * 2 + 5, y0, inner - (col3 * 2 + 5), eH);
+  label('3a. How long on this job / avg. weekly hours', M + 3, y0 + 8);
+  value((gv('f-time-job') || '') + (gv('f-avg-hrs') ? '  /  ' + gv('f-avg-hrs') + ' hrs' : ''), M + 3, y0 + 22, col3 + 5);
+  label('3b. Last date on this job', M + col3 + 13, y0 + 8);
+  value(gv('f-last-date'), M + col3 + 13, y0 + 22);
+  label('3c. Hours last day', M + col3 * 2 + 8, y0 + 8);
+  value(gv('f-last-hrs'), M + col3 * 2 + 8, y0 + 22);
+
+  y0 += eH;
+  // Row 6: 4a pay | 4b benefits | 4c freq
+  var fH = 42;
+  var c4a = inner * 0.28, c4b = inner * 0.38, c4c = inner * 0.34;
+  box(M, y0, c4a, fH);
+  box(M + c4a, y0, c4b, fH);
+  box(M + c4a + c4b, y0, c4c, fH);
+
+  label('4a. Hourly Rate of Pay', M + 3, y0 + 8);
+  value(gv('f-pay-rate'), M + 3, y0 + 22);
+
+  label('4b. Fringe benefits?', M + c4a + 3, y0 + 8);
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(0,0,0);
+  txt('Medical', M + c4a + 3, y0 + 20, 8);
+  yn('medical', M + c4a + 35, y0 + 20);
+  txt('Pension', M + c4a + 3, y0 + 33, 8);
+  yn('pension', M + c4a + 35, y0 + 33);
+
+  label('4c. Frequency of Pay:', M + c4a + c4b + 3, y0 + 8);
+  var freqVal = tv['freq'] || '';
+  var freqOpts = ['Weekly', 'Biweekly', 'Semi-monthly', 'Other'];
+  var freqY = y0 + 18;
+  freqOpts.forEach(function(opt) {
+    box(M + c4a + c4b + 3, freqY - 8, 8, 8);
+    if (freqVal === opt) { doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.text('X', M + c4a + c4b + 3.5, freqY - 0.5); }
+    txt(opt, M + c4a + c4b + 13, freqY, 8);
+    freqY += 11;
+  });
+
+  y0 += fH;
+
+  // Items 5, 6, 7
+  function textBox(lbl, val, x, bY, w, h) {
+    box(x, bY, w, h);
+    label(lbl, x + 3, bY + 8);
+    if (val) {
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(0,0,0);
+      var lines = doc.splitTextToSize(val, w - 6);
+      doc.text(lines.slice(0, Math.floor((h - 14) / 11)), x + 3, bY + 18);
+    }
+  }
+  textBox('5. Your Job Classification(s):', gv('f-class'), M, y0, inner, 36); y0 += 36;
+  textBox('6. Your Duties:', gv('f-duties'), M, y0, inner, 36); y0 += 36;
+  textBox('7. Tools or Equipment Used:', gv('f-tools'), M, y0, inner, 36); y0 += 36;
+
+  // Items 8-11 compliance grid
+  var compH = 56;
+  var half = inner / 2;
+  box(M, y0, half, compH / 2);
+  box(M + half, y0, half, compH / 2);
+  box(M, y0 + compH / 2, half, compH / 2);
+  box(M + half, y0 + compH / 2, half, compH / 2);
+
+  label('8. Are you an apprentice or trainee?', M + 3, y0 + 9);
+  yn('apprentice', M + 3, y0 + 22);
+  label('8a. Have you provided a copy of your apprenticeship certificate?', M + half + 3, y0 + 9);
+  yn('cert', M + half + 3, y0 + 22);
+  label('9. Are you paid for all hours worked?', M + 3, y0 + compH / 2 + 9);
+  yn('all-hrs', M + 3, y0 + compH / 2 + 22);
+  label('10. Are you paid at least time and 1/2 (1.5x) for hours over 40 in a week?', M + half + 3, y0 + compH / 2 + 9);
+  yn('overtime', M + half + 3, y0 + compH / 2 + 22);
+
+  y0 += compH;
+  // Item 11
+  box(M, y0, inner, 28);
+  label('11. Have you ever been threatened or coerced into giving up any part of your pay?', M + 3, y0 + 9);
+  yn('coerced', M + 210, y0 + 20);
+  y0 += 28;
+
+  // Items 12a/12b — signatures
+  var sigBoxH = 52;
+  box(M, y0, inner * 0.65, sigBoxH);
+  box(M + inner * 0.65, y0, inner * 0.35, sigBoxH);
+  label('12a. Employee Signature', M + 3, y0 + 9);
+  var empSig = getSigData('sig-emp');
+  if (empSig) {
+    doc.addImage(empSig, 'PNG', M + 3, y0 + 12, inner * 0.6, 34);
+  }
+  label('12b. Date', M + inner * 0.65 + 3, y0 + 9);
+  value(gv('f-sig-date'), M + inner * 0.65 + 3, y0 + 24);
+  y0 += sigBoxH;
+
+  // Item 13 observed duties
+  textBox('13. Duties Observed by the Interviewer (Please be specific):', gv('f-obs'), M, y0, inner, 48); y0 += 48;
+
+  // Item 14 remarks
+  textBox('14. Remarks', gv('f-remarks'), M, y0, inner, 36); y0 += 36;
+
+  // Items 15a-c
+  var i15H = 52;
+  box(M, y0, inner * 0.38, i15H);
+  box(M + inner * 0.38, y0, inner * 0.33, i15H);
+  box(M + inner * 0.71, y0, inner * 0.29, i15H);
+  label('15a. Interviewer Name (please print)', M + 3, y0 + 9);
+  value(gv('f-int-name'), M + 3, y0 + 24);
+  label('15b. Signature of Interviewer', M + inner * 0.38 + 3, y0 + 9);
+  var intSig = getSigData('sig-int');
+  if (intSig) {
+    doc.addImage(intSig, 'PNG', M + inner * 0.38 + 2, y0 + 12, inner * 0.31, 34);
+  }
+  label('15c. Date of Interview', M + inner * 0.71 + 3, y0 + 9);
+  value(gv('f-int-date'), M + inner * 0.71 + 3, y0 + 24);
+
+  // Footer p1
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(80, 80, 80);
+  doc.text('Previous editions are obsolete', M, H - 18);
+  doc.text('Form HUD-11 (03/2025)', W - M, H - 18, { align: 'right' });
+
+  // ────────────────────────────────────────
+  // PAGE 2 — Payroll Examination
+  // ────────────────────────────────────────
+  doc.addPage();
+
+  // Header banner p2
+  doc.setFillColor(240, 240, 240);
+  doc.rect(M, M, inner, 28, 'F');
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
+  doc.text('Record of Employee Interview', W / 2, M + 12, { align: 'center' });
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 50, 50);
+  doc.text('U.S. Department of Housing and Urban Development', W / 2, M + 21, { align: 'center' });
+  doc.text('Office of Davis-Bacon and Labor Standards', W / 2, M + 28.5, { align: 'center' });
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 60);
+  doc.text('OMB Approval No. 2501-0009', W - M - 2, M + 8, { align: 'right' });
+  doc.text('(exp. 03/31/2028)', W - M - 2, M + 15, { align: 'right' });
+  doc.text('Form HUD-11 (03/2025)', W - M - 2, M + 22, { align: 'right' });
+
+  var y2 = M + 42;
+
+  // Payroll Examination header
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
+  doc.text('Payroll Examination', M, y2);
+  y2 += 6;
+
+  // Item 16
+  textBox('16. Remarks', gv('f-pay-remarks'), M, y2, inner, 100); y2 += 100;
+
+  // Items 17a/17b
+  var i17H = 60;
+  box(M, y2, inner * 0.65, i17H);
+  box(M + inner * 0.65, y2, inner * 0.35, i17H);
+  label('17a. Signature of Payroll Examiner', M + 3, y2 + 9);
+  var paySig = getSigData('sig-pay');
+  if (paySig) {
+    doc.addImage(paySig, 'PNG', M + 3, y2 + 12, inner * 0.6, 42);
+  }
+  label('17b. Date', M + inner * 0.65 + 3, y2 + 9);
+  value(gv('f-pay-date'), M + inner * 0.65 + 3, y2 + 24);
+  y2 += i17H;
+
+  // Footer p2
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(80, 80, 80);
+  doc.text('Previous editions are obsolete', M, H - 18);
+  doc.text('Form HUD-11 (03/2025)', W - M, H - 18, { align: 'right' });
+
+  // ────────────────────────────────────────
+  // PAGE 3 — Additional Remarks
+  // ────────────────────────────────────────
+  doc.addPage();
+
+  doc.setFillColor(240, 240, 240);
+  doc.rect(M, M, inner, 28, 'F');
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
+  doc.text('Record of Employee Interview', W / 2, M + 12, { align: 'center' });
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 50, 50);
+  doc.text('U.S. Department of Housing and Urban Development', W / 2, M + 21, { align: 'center' });
+  doc.text('Office of Davis-Bacon and Labor Standards', W / 2, M + 28.5, { align: 'center' });
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 60);
+  doc.text('OMB Approval No. 2501-0009', W - M - 2, M + 8, { align: 'right' });
+  doc.text('(exp. 03/31/2028)', W - M - 2, M + 15, { align: 'right' });
+  doc.text('Form HUD-11 (03/2025)', W - M - 2, M + 22, { align: 'right' });
+
+  var y3 = M + 42;
+  // Item 18 large box
+  textBox('18. Additional Remarks', gv('f-addl'), M, y3, inner, H - y3 - 36);
+
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(80, 80, 80);
+  doc.text('Previous editions are obsolete', M, H - 18);
+  doc.text('Form HUD-11 (03/2025)', W - M, H - 18, { align: 'right' });
+
+  // Save
+  var empName = gv('f-emp-name') || 'Employee';
+  var projNum = gv('f-proj-num') || 'HUD11';
+  var fname = 'HUD-11_' + empName.replace(/\s+/g, '_') + '_' + projNum.replace(/\s+/g, '_') + '.pdf';
+  doc.save(fname);
+  showToast('PDF exported: ' + fname);
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Init ───────────────────────────────────────────────────────────────
+function initApp() {
+  // Measure actual rendered header and nav heights, set content-area to fill between them
+  var header = document.getElementById('app-header');
+  var nav = document.getElementById('nav-bar');
+  var ca = document.getElementById('content-area');
+  var headerH = header ? header.offsetHeight : 90;
+  var navH = nav ? nav.offsetHeight : 70;
+  if (ca) {
+    ca.style.top = headerH + 'px';
+    ca.style.bottom = navH + 'px';
+  }
+
+  // Show section 1 immediately via inline style — no class dependency
+  showSection(1);
+  updateUI();
+
+  // Signatures
+  initSig('sig-emp');
+  initSig('sig-int');
+  initSig('sig-pay');
+
+  // Default dates
+  var today = new Date().toISOString().split('T')[0];
+  var intDate = document.getElementById('f-int-date');
+  var sigDate = document.getElementById('f-sig-date');
+  if (intDate && !intDate.value) intDate.value = today;
+  if (sigDate && !sigDate.value) sigDate.value = today;
+}
+
+// Run as soon as DOM is ready — don't wait for images/scripts
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</body>
+</html>
